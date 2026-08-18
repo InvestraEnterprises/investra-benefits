@@ -4,6 +4,8 @@ import Link from 'next/link';
 import ClientTracker from '@/components/ClientTracker';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
+export const dynamic = 'force-dynamic';
+
 export default async function VoucherPage({ params, searchParams }: any) {
   const source = searchParams.source || 'UNKNOWN';
   const offer = await prisma.offer.findUnique({
