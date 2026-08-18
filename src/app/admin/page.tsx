@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
 import QRCodeDisplay from '@/components/QRCodeDisplay';
 
+export const dynamic = 'force-dynamic';
+
 export default async function AdminPage() {
   const events = await prisma.trackingEvent.findMany();
   const pageViews = events.filter(e => e.eventType === 'PAGE_VIEW').length;
