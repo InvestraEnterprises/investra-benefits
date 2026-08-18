@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import ClientTracker from '@/components/ClientTracker';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OfferPage({ params, searchParams }: any) {
   const source = searchParams.source || 'UNKNOWN';
   const offer = await prisma.offer.findUnique({
