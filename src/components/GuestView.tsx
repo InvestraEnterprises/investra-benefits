@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
 import ClientTracker from '@/components/ClientTracker';
 
 export const dynamic = 'force-dynamic';
@@ -22,18 +21,10 @@ type GuestViewProps = {
   source: string;
 };
 
-type OfferWithRelations = Prisma.OfferGetPayload<{
-  include: {
-    partner: true;
-    category: true;
-  };
-}>;
-
-type CategoryItem = Prisma.CategoryGetPayload<{}>;
-
 export default async function GuestView({ source }: GuestViewProps) {
-  let categories: CategoryItem[] = [];
-  let offers: OfferWithRelations[] = [];
+  let categories: any[] = [];
+  let offers: any[] = [];
+  let partners: any[] = [];
 
   try {
     categories = await prisma.category.findMany({
@@ -49,17 +40,23 @@ export default async function GuestView({ source }: GuestViewProps) {
       where: {
         active: true,
       },
-      include: {
-        partner: true,
-        category: true,
-      },
       orderBy: {
         createdAt: 'desc',
+      },
+    });
+
+    partners = await prisma.partner.findMany({
+      where: {
+        active: true,
       },
     });
   } catch (error) {
     console.error('Failed to load guest benefits:', error);
   }
+
+  const partnerMap = new Map(
+    partners.map((partner) => [partner.id, partner])
+  );
 
   return (
     <div className="min-h-screen bg-investra-light">
@@ -85,7 +82,6 @@ export default async function GuestView({ source }: GuestViewProps) {
         </div>
       </header>
 
-      {/* MAIN */}
       <main className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
 
         {/* HERO */}
@@ -107,7 +103,7 @@ export default async function GuestView({ source }: GuestViewProps) {
           </div>
         </section>
 
-        {/* CATEGORY NAVIGATION */}
+        {/* CATEGORIES */}
         <section className="pb-12">
           <div className="mb-4 flex items-end justify-between">
             <h2 className="serif text-3xl text-investra-blue">
@@ -142,7 +138,7 @@ export default async function GuestView({ source }: GuestViewProps) {
           )}
         </section>
 
-        {/* OFFERS BY CATEGORY */}
+        {/* OFFERS */}
         {categories.length > 0 ? (
           categories.map((category) => {
             const categoryOffers = offers.filter(
@@ -171,8 +167,9 @@ export default async function GuestView({ source }: GuestViewProps) {
 
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
                   {categoryOffers.map((offer) => {
+                    const partner = partnerMap.get(offer.partnerId);
                     const partnerName =
-                      offer.partner?.name || 'INVESTRA PARTNER';
+                      partner?.name || 'INVESTRA PARTNER';
 
                     return (
                       <article
@@ -217,14 +214,12 @@ export default async function GuestView({ source }: GuestViewProps) {
                             )}
                           </div>
 
-                          {/* DESCRIPTION */}
                           {offer.description && (
                             <p className="mt-3 min-h-12 text-sm leading-6 text-investra-muted">
                               {offer.description}
                             </p>
                           )}
 
-                          {/* PRICES */}
                           {(offer.regularPrice || offer.guestPrice) && (
                             <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-4">
                               <div>
@@ -249,7 +244,6 @@ export default async function GuestView({ source }: GuestViewProps) {
                             </div>
                           )}
 
-                          {/* CTA */}
                           <Link
                             href={`/offer/${offer.slug}?source=${encodeURIComponent(
                               source
@@ -274,7 +268,6 @@ export default async function GuestView({ source }: GuestViewProps) {
           </div>
         )}
 
-        {/* NO OFFERS */}
         {categories.length > 0 && offers.length === 0 && (
           <div className="card p-10 text-center text-sm text-investra-muted">
             No active offers are available at the moment.
@@ -282,7 +275,6 @@ export default async function GuestView({ source }: GuestViewProps) {
         )}
       </main>
 
-      {/* FOOTER */}
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8 text-xs text-investra-muted sm:px-8">
           <strong className="text-investra-blue">
