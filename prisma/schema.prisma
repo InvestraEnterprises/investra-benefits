@@ -1,0 +1,91 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OfferType {
+  AFFILIATE
+  VOUCHER
+}
+
+enum EventType {
+  PAGE_VIEW
+  OFFER_VIEW
+  AFFILIATE_CLICK
+  VOUCHER_VIEW
+  VOUCHER_REDEEMED
+}
+
+model Partner {
+  id          String   @id @default(cuid())
+  name        String
+  logoUrl     String?
+  description String?
+  websiteUrl  String?
+  active      Boolean  @default(true)
+  offers      Offer[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  active    Boolean  @default(true)
+  offers    Offer[]
+  createdAt DateTime @default(now())
+}
+
+model Property {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model Offer {
+  id             String     @id @default(cuid())
+  slug           String     @unique
+  title          String
+  description    String?
+  discount       String?
+  regularPrice   String?
+  guestPrice     String?
+  imageUrl       String?
+  offerType      OfferType
+  affiliateUrl   String?
+  voucherCode    String?    @unique
+  active         Boolean    @default(true)
+  partnerId      String
+  partner        Partner    @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  categoryId     String?
+  category       Category?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  trackingEvents TrackingEvent[]
+  redemptions    VoucherRedemption[]
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model TrackingEvent {
+  id         String      @id @default(cuid())
+  eventType  EventType
+  offerId    String?
+  offer      Offer?      @relation(fields: [offerId], references: [id], onDelete: SetNull)
+  partnerId  String?
+  source     String
+  createdAt  DateTime    @default(now())
+}
+
+model VoucherRedemption {
+  id         String   @id @default(cuid())
+  offerId    String
+  offer      Offer    @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  source     String
+  redeemedAt DateTime @default(now())
+}
