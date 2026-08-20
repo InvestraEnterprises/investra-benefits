@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import ClientTracker from '@/components/ClientTracker';
 
 export const dynamic = 'force-dynamic';
@@ -9,54 +10,55 @@ const icons: Record<string, string> = {
   'boat-trips': '🛥️',
   'tours-excursions': '🏝️',
   restaurants: '🍽️',
+  'cafes-bars': '☕',
   'spa-wellness': '💆',
   transfers: '🚕',
   activities: '🎯',
   shopping: '🛍️',
+  services: '🛠️',
 };
 
 type GuestViewProps = {
   source: string;
 };
 
-export default async function GuestView({ source }: GuestViewProps) {
-  let categories: Awaited<
-    ReturnType<typeof prisma.category.findMany>
-  > = [];
+type OfferWithRelations = Prisma.OfferGetPayload<{
+  include: {
+    partner: true;
+    category: true;
+  };
+}>;
 
-  let offers: Awaited<
-    ReturnType<
-      typeof prisma.offer.findMany<{
-        include: {
-          partner: true;
-          category: true;
-        };
-      }>
-    >
-  > = [];
+type CategoryItem = Prisma.CategoryGetPayload<{}>;
+
+export default async function GuestView({ source }: GuestViewProps) {
+  let categories: CategoryItem[] = [];
+  let offers: OfferWithRelations[] = [];
 
   try {
-    [categories, offers] = await Promise.all([
-      prisma.category.findMany({
-        where: { active: true },
-        orderBy: { name: 'asc' },
-      }),
+    categories = await prisma.category.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
 
-      prisma.offer.findMany({
-        where: {
-          active: true,
-        },
-        include: {
-          partner: true,
-          category: true,
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      }),
-    ]);
+    offers = await prisma.offer.findMany({
+      where: {
+        active: true,
+      },
+      include: {
+        partner: true,
+        category: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
   } catch (error) {
-    console.error('Failed to load guest offers:', error);
+    console.error('Failed to load guest benefits:', error);
   }
 
   return (
@@ -67,19 +69,19 @@ export default async function GuestView({ source }: GuestViewProps) {
       />
 
       {/* HEADER */}
-      <header className="sticky top-0 z-20 border-b border-white/40 bg-investra-light/90 backdrop-blur">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-investra-light/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
+          <Link href={source ? `/guest/${source}` : '/'}>
+            <img
+              src="/brand/1680098193895.jpg"
+              alt="INVESTRA ENTERPRISES LTD"
+              className="h-10 w-auto rounded object-contain"
+            />
+          </Link>
 
-          <img
-            src="/brand/1680098193895.jpg"
-            alt="INVESTRA ENTERPRISES LTD"
-            className="h-10 w-auto rounded object-contain"
-          />
-
-          <span className="rounded-full border border-black/5 bg-white px-3 py-1 text-[10px] font-extrabold tracking-[0.18em] text-investra-blue">
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-extrabold tracking-[0.18em] text-investra-blue">
             EN
           </span>
-
         </div>
       </header>
 
@@ -89,7 +91,6 @@ export default async function GuestView({ source }: GuestViewProps) {
         {/* HERO */}
         <section className="py-14 sm:py-20">
           <div className="max-w-3xl">
-
             <div className="mb-5 text-[11px] font-extrabold tracking-[0.25em] text-investra-gold">
               INVESTRA GUEST BENEFITS
             </div>
@@ -103,31 +104,28 @@ export default async function GuestView({ source }: GuestViewProps) {
             <p className="mt-6 max-w-2xl text-base leading-7 text-investra-muted sm:text-lg">
               Exclusive offers, discounts and local experiences for our guests in North Cyprus.
             </p>
-
           </div>
         </section>
 
-        {/* CATEGORIES */}
+        {/* CATEGORY NAVIGATION */}
         <section className="pb-12">
-
           <div className="mb-4 flex items-end justify-between">
             <h2 className="serif text-3xl text-investra-blue">
               Explore offers
             </h2>
 
             <span className="text-xs font-semibold text-investra-muted">
-              {offers.length} available
+              {offers.length} offer{offers.length === 1 ? '' : 's'}
             </span>
           </div>
 
           {categories.length > 0 ? (
             <div className="flex gap-2 overflow-x-auto pb-2">
-
               {categories.map((category) => (
                 <a
                   key={category.id}
                   href={`#${category.slug}`}
-                  className="whitespace-nowrap rounded-full border border-black/5 bg-white px-4 py-2 text-sm font-bold text-investra-blue shadow-sm"
+                  className="whitespace-nowrap rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-investra-blue shadow-sm transition hover:border-investra-gold"
                 >
                   <span className="mr-1">
                     {icons[category.slug] || '✦'}
@@ -136,25 +134,22 @@ export default async function GuestView({ source }: GuestViewProps) {
                   {category.name}
                 </a>
               ))}
-
             </div>
           ) : (
             <div className="text-sm text-investra-muted">
               Categories will appear here soon.
             </div>
           )}
-
         </section>
 
-        {/* OFFERS */}
+        {/* OFFERS BY CATEGORY */}
         {categories.length > 0 ? (
           categories.map((category) => {
-
             const categoryOffers = offers.filter(
               (offer) => offer.categoryId === category.id
             );
 
-            if (!categoryOffers.length) {
+            if (categoryOffers.length === 0) {
               return null;
             }
 
@@ -164,10 +159,7 @@ export default async function GuestView({ source }: GuestViewProps) {
                 id={category.slug}
                 className="scroll-mt-24 pb-14"
               >
-
-                {/* CATEGORY TITLE */}
-                <div className="mb-4 flex items-center gap-3">
-
+                <div className="mb-5 flex items-center gap-3">
                   <span className="text-xl">
                     {icons[category.slug] || '✦'}
                   </span>
@@ -175,158 +167,124 @@ export default async function GuestView({ source }: GuestViewProps) {
                   <h2 className="serif text-2xl text-investra-blue">
                     {category.name}
                   </h2>
-
                 </div>
 
-                {/* OFFER GRID */}
                 <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {categoryOffers.map((offer) => {
+                    const partnerName =
+                      offer.partner?.name || 'INVESTRA PARTNER';
 
-                  {categoryOffers.map((offer) => (
-
-                    <article
-                      key={offer.id}
-                      className="card overflow-hidden"
-                    >
-
-                      {/* IMAGE */}
-                      <div className="h-48 bg-investra-light">
-
-                        {offer.imageUrl ? (
-
-                          <img
-                            src={offer.imageUrl}
-                            alt={offer.title}
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-
-                        ) : (
-
-                          <div className="flex h-full items-center justify-center bg-gradient-to-br from-investra-blue to-[#1c5879] px-8 text-center">
-
-                            <span className="serif text-2xl italic text-white/90">
-                              {offer.partner.name}
-                            </span>
-
-                          </div>
-
-                        )}
-
-                      </div>
-
-                      {/* OFFER CONTENT */}
-                      <div className="p-5">
-
-                        <div className="flex items-start justify-between gap-3">
-
-                          <div>
-
-                            <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-investra-gold">
-                              {offer.partner.name}
+                    return (
+                      <article
+                        key={offer.id}
+                        className="card overflow-hidden"
+                      >
+                        {/* IMAGE */}
+                        <div className="h-48 bg-investra-light">
+                          {offer.imageUrl ? (
+                            <img
+                              src={offer.imageUrl}
+                              alt={offer.title}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center bg-gradient-to-br from-investra-blue to-[#1c5879] px-8 text-center">
+                              <span className="serif text-2xl italic text-white/90">
+                                {partnerName}
+                              </span>
                             </div>
-
-                            <h3 className="serif mt-2 text-2xl text-investra-blue">
-                              {offer.title}
-                            </h3>
-
-                          </div>
-
-                          {offer.discount && (
-                            <span className="gold-pill">
-                              {offer.discount}
-                            </span>
                           )}
-
                         </div>
 
-                        {/* DESCRIPTION */}
-                        {offer.description && (
-                          <p className="mt-3 min-h-12 text-sm leading-6 text-investra-muted">
-                            {offer.description}
-                          </p>
-                        )}
-
-                        {/* PRICES */}
-                        {(offer.regularPrice || offer.guestPrice) && (
-
-                          <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-4">
-
+                        {/* CONTENT */}
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-3">
                             <div>
+                              <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-investra-gold">
+                                {partnerName}
+                              </div>
 
-                              {offer.regularPrice && (
-                                <div className="text-sm text-slate-400 line-through">
-                                  {offer.regularPrice}
-                                </div>
-                              )}
-
+                              <h3 className="serif mt-2 text-2xl text-investra-blue">
+                                {offer.title}
+                              </h3>
                             </div>
 
-                            {offer.guestPrice && (
-                              <div className="text-right">
-
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-investra-gold">
-                                  Guest price
-                                </div>
-
-                                <div className="text-xl font-black text-investra-blue">
-                                  {offer.guestPrice}
-                                </div>
-
-                              </div>
+                            {offer.discount && (
+                              <span className="gold-pill">
+                                {offer.discount}
+                              </span>
                             )}
-
                           </div>
 
-                        )}
+                          {/* DESCRIPTION */}
+                          {offer.description && (
+                            <p className="mt-3 min-h-12 text-sm leading-6 text-investra-muted">
+                              {offer.description}
+                            </p>
+                          )}
 
-                        {/* BUTTON */}
-                        <Link
-                          href={`/offer/${offer.slug}?source=${encodeURIComponent(
-                            source
-                          )}`}
-                          className="brand-btn mt-5 block text-center"
-                        >
-                          {offer.offerType === 'VOUCHER'
-                            ? 'Get Discount'
-                            : 'Get Offer'}
-                        </Link>
+                          {/* PRICES */}
+                          {(offer.regularPrice || offer.guestPrice) && (
+                            <div className="mt-4 flex items-end justify-between border-t border-slate-100 pt-4">
+                              <div>
+                                {offer.regularPrice && (
+                                  <div className="text-sm text-slate-400 line-through">
+                                    {offer.regularPrice}
+                                  </div>
+                                )}
+                              </div>
 
-                      </div>
+                              {offer.guestPrice && (
+                                <div className="text-right">
+                                  <div className="text-[10px] font-bold uppercase tracking-wider text-investra-gold">
+                                    Guest price
+                                  </div>
 
-                    </article>
+                                  <div className="text-xl font-black text-investra-blue">
+                                    {offer.guestPrice}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
 
-                  ))}
-
+                          {/* CTA */}
+                          <Link
+                            href={`/offer/${offer.slug}?source=${encodeURIComponent(
+                              source
+                            )}`}
+                            className="brand-btn mt-5 block text-center"
+                          >
+                            {offer.offerType === 'VOUCHER'
+                              ? 'Get Discount'
+                              : 'Get Offer'}
+                          </Link>
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-
               </section>
             );
           })
-
         ) : (
-
           <div className="card p-10 text-center text-sm text-investra-muted">
             Offers are being prepared. Please check again soon.
           </div>
-
         )}
 
-        {/* DATABASE EMPTY BUT CATEGORIES EXIST */}
+        {/* NO OFFERS */}
         {categories.length > 0 && offers.length === 0 && (
-
           <div className="card p-10 text-center text-sm text-investra-muted">
             No active offers are available at the moment.
           </div>
-
         )}
-
       </main>
 
       {/* FOOTER */}
       <footer className="border-t border-slate-200 bg-white">
-
         <div className="mx-auto flex max-w-6xl flex-col gap-2 px-5 py-8 text-xs text-investra-muted sm:px-8">
-
           <strong className="text-investra-blue">
             INVESTRA ENTERPRISES LTD
           </strong>
@@ -334,11 +292,8 @@ export default async function GuestView({ source }: GuestViewProps) {
           <span>
             Guest Benefits · North Cyprus
           </span>
-
         </div>
-
       </footer>
-
     </div>
   );
 }
